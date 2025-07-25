@@ -14,7 +14,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_MEMORY_H=1 \
 	-DHAVE_STRINGS_H=1 \
 	-DHAVE_UNISTD_H=1 \
-	-DSSLDIR=\"/usr\" \
+	-DSSLDIR=\"/@unixroot/usr\" \
 	-DHOST=\"i386-pc-os2-emx\" \
 	-DHAVE_LIBSOCKET=1 \
 	-DHAVE_GRP_H=1 \
@@ -37,7 +37,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 
 CC = gcc
 .SUFFIXES = .c .o
-OPENSSLDIR = u:/extras
+OPENSSLDIR = /@unixroot/usr
 #SYSLOGDIR = /unixos2/workdir/syslog
 INCLUDES = -I$(OPENSSLDIR)/outinc
 LIBS = -lsocket -L$(OPENSSLDIR)/out -lssl -lcrypto -lz -lsyslog

@@ -108,7 +108,9 @@ typedef __int64             ssize_t;
 typedef int                 ssize_t;
 #endif /* _WIN64 */
 #endif /* !__MINGW32__ */
+#ifndef __OS2__
 #define USE_IPv6
+#endif
 #define _CRT_SECURE_NO_DEPRECATE
 #define _CRT_NONSTDC_NO_DEPRECATE
 #define _CRT_NON_CONFORMING_SWPRINTFS
@@ -272,8 +274,6 @@ typedef int                 ssize_t;
 #define socklen_t                   __socklen_t
 #define strcasecmp                  stricmp
 #define strncasecmp                 strnicmp
-#define NI_NUMERICHOST              1
-#define NI_NUMERICSERV              2
 #define get_last_socket_error()     sock_errno()
 // 2012-01-19 SHL Avoid compile error
 // #define set_last_socket_error(e)    ()
@@ -382,7 +382,10 @@ typedef int SOCKET;
 #ifndef INADDR_LOOPBACK
 #define INADDR_LOOPBACK  (u32)0x7F000001
 #endif
-
+#ifdef __OS2__
+#include <libcx/net.h>
+#define OPENSSL_NO_ENGINE
+#endif
 /* SunOS 4 */
 #if defined(sun) && !defined(__svr4__) && !defined(__SVR4)
 #define atexit(a) on_exit((a), NULL)
@@ -506,9 +509,11 @@ extern char *sys_errlist[];
 int DH_set0_pqg(DH *dh, BIGNUM *p, BIGNUM *q, BIGNUM *g);
 #endif /* OPENSSL_VERSION_NUMBER<0x10100000L */
 #endif /* !defined(OPENSSL_NO_DH) */
+#ifndef __OS2__
 #ifndef OPENSSL_NO_ENGINE
 #include <openssl/engine.h>
 #endif /* !defined(OPENSSL_NO_ENGINE) */
+#endif /* !defined __OS2__ */
 #ifndef OPENSSL_NO_OCSP
 #include <openssl/ocsp.h>
 #endif /* !defined(OPENSSL_NO_OCSP) */

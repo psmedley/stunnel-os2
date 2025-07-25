@@ -90,7 +90,7 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
     return c;
 }
 
-#if defined(USE_WIN32) || defined(__OS2__)
+#if defined(USE_WIN32)
 unsigned __stdcall
 #else
 void *

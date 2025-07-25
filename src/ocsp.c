@@ -94,7 +94,7 @@ NOEXPORT int ocsp_response_validate(SERVICE_OPTIONS *, OCSP_PARAMS *);
 NOEXPORT void ocsp_params_setup_cert_id(OCSP_PARAMS *);
 NOEXPORT int ocsp_params_append_root_ca(SERVICE_OPTIONS *, OCSP_PARAMS *);
 NOEXPORT void log_time(const int, const char *, ASN1_GENERALIZEDTIME *);
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if (OPENSSL_VERSION_NUMBER>=0x10101000L) && !defined(__OS2__)
 NOEXPORT time_t time_t_get_asn1_time(const ASN1_TIME *);
 #endif /* OpenSSL version 1.1.1 or later */
 
@@ -939,7 +939,7 @@ NOEXPORT void log_time(const int level, const char *txt, ASN1_GENERALIZEDTIME *t
     bio=BIO_new(BIO_s_mem());
     if(!bio)
         return;
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if (OPENSSL_VERSION_NUMBER>=0x10101000L) && !defined(__OS2__)
     posix_time = time_t_get_asn1_time(t);
     if(posix_time==INVALID_TIME) {
         BIO_free(bio);
@@ -971,7 +971,7 @@ NOEXPORT void log_time(const int level, const char *txt, ASN1_GENERALIZEDTIME *t
     str_free(cp);
 }
 
-#if OPENSSL_VERSION_NUMBER>=0x10101000L
+#if (OPENSSL_VERSION_NUMBER>=0x10101000L) && !defined(__OS2__)
 /* Converts ASN1_TIME structure to time_t */
 NOEXPORT time_t time_t_get_asn1_time(const ASN1_TIME *s) {
     struct tm tm;

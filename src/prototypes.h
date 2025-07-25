@@ -720,7 +720,7 @@ int socket_needs_retry(CLI *, const char *);
 /**************************************** prototypes for client.c */
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, SOCKET, SOCKET);
-#if defined(USE_WIN32) || defined(__OS2__)
+#if defined(USE_WIN32)
 unsigned __stdcall
 #else
 void *
