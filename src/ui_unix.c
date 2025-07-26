@@ -36,16 +36,22 @@
  */
 
 #include "prototypes.h"
+#ifdef __KLIBC__
+#define INCL_DOSPROCESS
+#define INCL_DOSEXCEPTIONS
+#define INCL_DOSMODULEMGR
+#include <os2.h>
+#define INCL_LOADEXCEPTQ
+#include "exceptq.h"
+#endif
 
 NOEXPORT int main_unix(int, char*[]);
-#if !defined(__vms) && !defined(USE_OS2)
+#if !defined(__vms) && !defined(__OS2__)
 NOEXPORT int daemonize(int);
 NOEXPORT int create_pid(void);
 NOEXPORT void delete_pid(void);
 #endif
-#ifndef USE_OS2
 NOEXPORT void signal_handler(int);
-#endif
 
 int main(int argc, char* argv[]) { /* execution begins here 8-) */
     int retval;
@@ -64,9 +70,9 @@ int main(int argc, char* argv[]) { /* execution begins here 8-) */
 NOEXPORT int main_unix(int argc, char* argv[]) {
     int configure_status;
 
-#if !defined(__vms) && !defined(USE_OS2)
     int fd;
 
+#if !defined(__vms) && !defined(__OS2__)
     fd=open("/dev/null", O_RDWR); /* open /dev/null before chroot */
     if(fd==INVALID_SOCKET)
         fatal("Could not open /dev/null");
@@ -83,7 +89,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         return 0;
     }
     if(service_options.next) { /* there are service sections -> daemon mode */
-#if !defined(__vms) && !defined(USE_OS2)
+#if !defined(__vms) && !defined(__OS2__)
         if(daemonize(fd)) {
             close(fd);
             return 1;
@@ -96,7 +102,7 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
         if(create_pid())
             return 1;
 #endif
-#ifndef USE_OS2
+#ifndef __OS2__x
         signal(SIGCHLD, signal_handler); /* handle dead children */
         signal(SIGHUP, signal_handler); /* configuration reload */
         signal(SIGUSR1, signal_handler); /* log reopen */
@@ -122,15 +128,15 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
             ;
         s_log(LOG_NOTICE, "Service processes terminated");
 #endif
-#if !defined(__vms) && !defined(USE_OS2)
+#if !defined(__vms) && !defined(__OS2__)
         delete_pid();
 #endif /* standard Unix */
     } else { /* inetd mode */
         CLI *c;
-#if !defined(__vms) && !defined(USE_OS2)
+#if !defined(__vms) && !defined(__OS2__)
         close(fd);
 #endif /* standard Unix */
-#ifndef USE_OS2
+#ifndef __OS2__xx
         signal(SIGCHLD, SIG_IGN); /* ignore dead children */
         signal(SIGPIPE, SIG_IGN); /* ignore broken pipe */
 #endif
@@ -145,7 +151,6 @@ NOEXPORT int main_unix(int argc, char* argv[]) {
     return 0;
 }
 
-#ifndef USE_OS2
 NOEXPORT void signal_handler(int sig) {
     int saved_errno;
 
@@ -154,9 +159,8 @@ NOEXPORT void signal_handler(int sig) {
     signal(sig, signal_handler);
     errno=saved_errno;
 }
-#endif
 
-#if !defined(__vms) && !defined(USE_OS2)
+#if !defined(__vms) && !defined(__OS2__)
 
 NOEXPORT int daemonize(int fd) { /* go to background */
     if(global_options.option.foreground)

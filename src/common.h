@@ -275,7 +275,9 @@ typedef int                 ssize_t;
 #define NI_NUMERICHOST              1
 #define NI_NUMERICSERV              2
 #define get_last_socket_error()     sock_errno()
-#define set_last_socket_error(e)    ()
+// 2012-01-19 SHL Avoid compile error
+// #define set_last_socket_error(e)    ()
+#define set_last_socket_error(e)
 #define get_last_error()            errno
 #define set_last_error(e)           (errno=(e))
 #define readsocket(s,b,n)           recv((s),(b),(n),0)

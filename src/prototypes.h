@@ -510,7 +510,11 @@ struct client_data_struct {
 #endif
 
     SOCKADDR_UNION peer_addr;                                /* peer address */
+#ifndef __OS2__
     socklen_t peer_addr_len;
+#else
+    int peer_addr_len; // 2012-01-20 SHL Avoid warnings
+#endif
     char *accepted_address;    /* textual representation of the peer address */
     SOCKADDR_UNION *bind_addr;               /* address to bind() the socket */
     SOCKADDR_LIST connect_addr;     /* either copied or resolved dynamically */
@@ -556,7 +560,7 @@ void main_cleanup(void);
 int drop_privileges(int);
 void daemon_loop(void);
 void signal_post(uint8_t);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
+#if !defined(USE_WIN32)
 void pid_status_hang(const char *);
 #endif
 void stunnel_info(int);
@@ -716,7 +720,7 @@ int socket_needs_retry(CLI *, const char *);
 /**************************************** prototypes for client.c */
 
 CLI *alloc_client_session(SERVICE_OPTIONS *, SOCKET, SOCKET);
-#if defined(USE_WIN32) || defined(USE_OS2)
+#if defined(USE_WIN32) || defined(__OS2__)
 unsigned __stdcall
 #else
 void *

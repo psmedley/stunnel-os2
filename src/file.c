@@ -168,7 +168,7 @@ int file_flush(DISK_FILE *df) {
 }
 
 int file_permissions(const char *file_name) {
-#if !defined(USE_WIN32) && !defined(USE_OS2)
+#if !defined(USE_WIN32) && !defined(__OS2__)
     struct stat sb; /* buffer for stat */
 
     /* check permissions of the private key file */

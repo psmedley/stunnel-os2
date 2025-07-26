@@ -58,7 +58,7 @@ static SOCKET max_fds;
 
 void get_limits(void) { /* set max_fds and max_clients */
     /* start with current ulimit */
-#if defined(HAVE_SYSCONF)
+#if defined(HAVE_SYSCONF) && !defined(__KLIBC__)
     errno=0;
     max_fds=(SOCKET)sysconf(_SC_OPEN_MAX);
     if(errno)
@@ -77,7 +77,7 @@ void get_limits(void) { /* set max_fds and max_clients */
     max_fds=0; /* unlimited */
 #endif /* HAVE_SYSCONF || HAVE_GETRLIMIT */
 
-#if !defined(USE_WIN32) && !defined(USE_POLL) && !defined(__INNOTEK_LIBC__)
+#if !defined(USE_WIN32) && !defined(USE_POLL) && !defined(__KLIBC__)
     /* apply FD_SETSIZE if select() is used on Unix */
     if(!max_fds || max_fds>FD_SETSIZE)
         max_fds=FD_SETSIZE; /* start with select() limit */
@@ -166,7 +166,11 @@ int s_pipe(int pipefd[2], int nonblock, const char *msg) {
     else
         retval=pipe2(pipefd, O_CLOEXEC);
 #else
+# ifndef __OS2__
     retval=pipe(pipefd);
+# else
+    retval=socketpair(AF_UNIX, SOCK_STREAM,0, pipefd);
+# endif
 #endif
     if(retval<0) {
         ioerror(msg);

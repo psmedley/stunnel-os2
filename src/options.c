@@ -36,7 +36,9 @@
  */
 
 #include "prototypes.h"
-
+#ifdef __OS2__
+#undef IPV6_V6ONLY
+#endif
 #if OPENSSL_VERSION_NUMBER >= 0x10101000L
 #define DEFAULT_CURVES "X25519:P-256:X448:P-521:P-384"
 #define DEFAULT_CURVES_FIPS "P-256:P-521:P-384"
@@ -73,6 +75,80 @@ int scandir(const char *, struct dirent ***,
     int (*)(const struct dirent *),
     int (*)(const struct dirent **, const struct dirent **));
 int alphasort(const struct dirent **, const struct dirent **);
+#endif
+#ifdef __OS2__
+/* For some reason EMX doesn't have scandir?  This is snarfed from BSD. */
+#define DIRSIZ(dp) \
+    ((sizeof (struct dirent) - (MAXNAMLEN+1)) + (((dp)->d_namlen+1 + 3) &~ 3))
+int scandir(char *dirname, struct dirent *(*namelist[]), int (*select)(struct dirent *), int (*dcomp)(struct dirent **, struct dirent **))
+{
+	register struct dirent *d, *p, **names;
+	register int nitems;
+	register char *cp1, *cp2;
+	struct stat stb;
+	long arraysz;
+	DIR *dirp;
+
+	if ((dirp = opendir(dirname)) == NULL)
+	    return(-1);
+	/*The fstat is failing sometimes - apparently a bad dd_id*/
+	/*
+	if (fstat(dirp->dd_id, &stb) < 0)
+	    return(-1);
+	 */
+
+	/*
+	 * estimate the array size by taking the size of the directory file
+	 * and dividing it by a multiple of the minimum size entry. 
+	 */
+	arraysz = 150/*(stb.st_size / 24)*/;
+	names = (struct dirent **)malloc(arraysz * sizeof(struct dirent *));
+	if (names == NULL)
+		return(-1);
+
+	nitems = 0;
+	while ((d = readdir(dirp)) != NULL) {
+		if (select != NULL && !(*select)(d))
+			continue;	/* just selected names */
+		/*
+		 * Make a minimum size copy of the data
+		 */
+		p = (struct dirent *)malloc(DIRSIZ(d));
+		if (p == NULL)
+			return(-1);
+		p->d_ino = d->d_ino;
+		p->d_reclen = d->d_reclen;
+		p->d_namlen = d->d_namlen;
+		for (cp1 = p->d_name, cp2 = d->d_name; *cp1++ = *cp2++; );
+		/*
+		 * Check to make sure the array has space left and
+		 * realloc the maximum size.
+		 */
+		if (++nitems >= arraysz) {
+		    /*The fstat is failing sometimes - apparently a bad dd_id*/
+			/*if (fstat(dirp->dd_id, &stb) < 0)
+				return(-1);*/	/* just might have grown */
+			arraysz = arraysz + arraysz/*stb.st_size / 12*/;
+			names = (struct dirent **)realloc((char *)names,
+				arraysz * sizeof(struct dirent *));
+			if (names == NULL)
+				return(-1);
+		}
+		names[nitems-1] = p;
+	}
+	closedir(dirp);
+	if (nitems && dcomp != NULL)
+		qsort(names, nitems, sizeof(struct dirent *), dcomp);
+	*namelist = names;
+	return(nitems);
+}
+/*
+ * Alphabetic order comparison routine for those who want it.
+ */
+int alphasort(struct dirent **d1, struct dirent **d2)
+{
+	return(strcmp((*d1)->d_name, (*d2)->d_name));
+}
 #endif
 NOEXPORT const char *parse_global_option(CMD, GLOBAL_OPTIONS *, char *, char *);
 NOEXPORT const char *parse_service_option(CMD, SERVICE_OPTIONS **, char *, char *);
@@ -951,8 +1027,17 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
 #ifndef USE_WIN32
     switch(cmd) {
     case CMD_SET_DEFAULTS:
+#if !defined(__OS2__)
         options->option.foreground=0;
         options->option.log_stderr=0;
+#else
+        // 2011-01-07 SHL
+	// default to foreground mode because this better matches older builds which
+        // suppressed daemonize which forground implies, but did not set the flag
+        // so some of the code still acted as if daemonize was in effect
+        options->option.foreground=1;
+        options->option.log_stderr=1;
+#endif
         break;
     case CMD_SET_COPY: /* not used for global options */
         break;
@@ -968,8 +1053,13 @@ NOEXPORT const char *parse_global_option(CMD cmd, GLOBAL_OPTIONS *options, char 
             options->option.foreground=1;
             options->option.log_stderr=0;
         } else if(!strcasecmp(arg, "no")) {
+#if defined(__OS2__)
+	    // 2011-01-07 SHL LIBC fork() does not work like *ix fork()
+            return "Foreground must be 'yes' for OS/2";
+#else
             options->option.foreground=0;
             options->option.log_stderr=0;
+#endif
         } else
             return "The argument needs to be either 'yes', 'quiet' or 'no'";
         return NULL; /* OK */
@@ -4769,7 +4859,11 @@ NOEXPORT int socket_options_print(void) {
     opt=socket_options_init();
     for(ptr=opt; ptr->opt_str; ++ptr) {
         SOCKET fd;
-        socklen_t optlen;
+#ifndef __OS2__ // 2012-01-20 SHL Avoid warnings
+    socklen_t optlen;
+#else
+    int optlen;
+#endif
         OPT_UNION val;
         char *ta, *tl, *tr, *td;
 

@@ -37,6 +37,10 @@
 
 #include "prototypes.h"
 
+#if defined(__OS2__) // 2012-01-19 SHL __atomic_decrement_s32, see s_log
+#include <sys\builtin.h>
+#endif // __OS2__
+
 NOEXPORT void log_queue(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void log_raw(SERVICE_OPTIONS *, int, char *, char *, char *);
 NOEXPORT void safestring(char *);
@@ -323,7 +327,23 @@ NOEXPORT void log_raw(SERVICE_OPTIONS *opt,
             opt->option.log_stderr)
 #endif
             )
+        {
+            // 2011-01-14 SHL libc seems to have problems with concurrent output to stderr
+#ifdef __OS2__
+            static volatile int32_t busy;
+            for (;;) {
+              if (__atomic_increment_s32(&busy) == 1)
+                break;
+              __atomic_decrement_s32(&busy);
+              sleep(1);
+            }
+#endif
+
         ui_new_log(line);
+#ifdef __OS2__
+            __atomic_decrement_s32(&busy);
+#endif
+        }
 }
 
 #ifdef __GNUC__

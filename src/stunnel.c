@@ -59,7 +59,7 @@
 
 /**************************************** prototypes */
 
-#ifdef __INNOTEK_LIBC__
+#ifdef __INNOTEK_LIBC__x
 struct sockaddr_un {
     u_char  sun_len;             /* sockaddr len including null */
     u_char  sun_family;          /* AF_OS2 or AF_UNIX */
@@ -68,7 +68,7 @@ struct sockaddr_un {
 #endif
 
 NOEXPORT void terminate_threads(void);
-#if !defined(USE_WIN32) && !defined(USE_OS2)
+#if !defined(USE_WIN32)
 NOEXPORT void pid_status_nohang(const char *);
 NOEXPORT void status_info(int, int, const char *);
 #endif
@@ -224,7 +224,7 @@ int main_configure(char *arg1, char *arg2) {
 }
 
 int drop_privileges(int critical) {
-#if defined(USE_WIN32) || defined(__vms) || defined(USE_OS2)
+#if defined(USE_WIN32) || defined(__vms) || defined(USE_OS2) || defined(__OS2__)
     (void)critical; /* squash the unused parameter warning */
 #else
 #ifdef HAVE_SETGROUPS
@@ -328,7 +328,7 @@ NOEXPORT void terminate_threads(void) {
 
 /**************************************** Unix-specific initialization */
 
-#if !defined(USE_WIN32) && !defined(USE_OS2)
+#if !defined(USE_WIN32) /*&& !defined(__OS2__)*/
 
 NOEXPORT void pid_status_nohang(const char *info) {
     int pid, status;
@@ -369,7 +369,7 @@ NOEXPORT void status_info(int pid, int status, const char *info) {
 #endif
 }
 
-#endif /* !defined(USE_WIN32) && !defined(USE_OS2) */
+#endif /* !defined(USE_WIN32) && !defined(__OS2__) */
 
 /**************************************** main loop accepting connections */
 
@@ -738,7 +738,7 @@ NOEXPORT int pipe_init(SOCKET socket_vector[2], const char *name) {
 
     if(make_sockets(socket_vector))
         return 1;
-#elif defined(__INNOTEK_LIBC__)
+#elif defined(__INNOTEK_LIBC__xx)
     /* Innotek port of GCC can not use select on a pipe:
      * use local socket instead */
     struct sockaddr_un un;
@@ -1060,7 +1060,12 @@ void stunnel_info(int level) {
     int tls_feature_found=0;
     char *features;
 
+#ifndef __OS2__
     s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " platform");
+#else
+    // 2011-05-26 SHL show more build info
+    s_log(level, "stunnel " STUNNEL_VERSION " on " HOST " built by Paul Smedley on %s", __DATE__);
+#endif
     if(strcmp(OPENSSL_VERSION_TEXT, OpenSSL_version(OPENSSL_VERSION))) {
         s_log(level, "Compiled with " OPENSSL_VERSION_TEXT);
         s_log(level, "Running  with %s", OpenSSL_version(OPENSSL_VERSION));

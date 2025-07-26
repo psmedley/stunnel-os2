@@ -1,3 +1,7 @@
+
+# 2011-01-07 SHL localize for slamain
+# 2012-01-20 SHL Switch to pthreads
+
 prefix=.
 DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DPACKAGE_TARNAME=\"stunnel\" \
@@ -14,7 +18,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_MEMORY_H=1 \
 	-DHAVE_STRINGS_H=1 \
 	-DHAVE_UNISTD_H=1 \
-	-DSSLDIR=\"/usr\" \
+	-DSSLDIR=\"/@unixroot/usr\" \
 	-DHOST=\"i386-pc-os2-emx\" \
 	-DHAVE_LIBSOCKET=1 \
 	-DHAVE_GRP_H=1 \
@@ -28,6 +32,7 @@ DEFS = -DPACKAGE_NAME=\"stunnel\" \
 	-DHAVE_SYSCONF=1 \
 	-DHAVE_ENDHOSTENT=1 \
         -DUSE_OS2=1 \
+        -DUSE_PTHREAD=1 \
 	-DSIZEOF_UNSIGNED_CHAR=1 \
 	-DSIZEOF_UNSIGNED_SHORT=2 \
 	-DSIZEOF_UNSIGNED_INT=4 \
@@ -40,19 +45,20 @@ CC = gcc
 OPENSSLDIR = u:/extras
 #SYSLOGDIR = /unixos2/workdir/syslog
 INCLUDES = -I$(OPENSSLDIR)/outinc
-LIBS = -lsocket -L$(OPENSSLDIR)/out -lssl -lcrypto -lz -lsyslog
-OBJS = file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o verify.o ocsp.o sthreads.o stunnel.o pty.o resolver.o str.o tls.o fd.o dhparam.o cron.o
+LIBS = -lsocket -L$(OPENSSLDIR)/out -lssl -lcrypto -lz -lpthreads -lsyslog -lcx
+OBJS = ui_unix.o file.o client.o log.o options.o protocol.o network.o ssl.o ctx.o verify.o ocsp.o sthreads.o stunnel.o pty.o resolver.o str.o tls.o fd.o dhparam.o cron.o
 LIBDIR = .
 CFLAGS = -O2 -Wall -Wshadow -Wcast-align -Wpointer-arith
 
 all: stunnel.exe
 
 stunnel.exe: $(OBJS)
-	$(CC) -Zmap $(CFLAGS) -o $@ $(OBJS) $(LIBS)
+	$(CC) -Zmap -static-libgcc $(CFLAGS) -o $@ $(OBJS) $(LIBS)
 
 .c.o:
 	$(CC) $(CFLAGS) $(DEFS) $(INCLUDES) -o $@ -c $<
 
+ui_unix.o: ui_unix.c common.h prototypes.h
 client.o: client.c common.h prototypes.h
 #env.o: env.c common.h prototypes.h
 #gui.o: gui.c common.h prototypes.h

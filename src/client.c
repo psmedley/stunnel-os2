@@ -90,7 +90,7 @@ CLI *alloc_client_session(SERVICE_OPTIONS *opt, SOCKET rfd, SOCKET wfd) {
     return c;
 }
 
-#if defined(USE_WIN32) || defined(USE_OS2)
+#if defined(USE_WIN32) || defined(__OS2__)
 unsigned __stdcall
 #else
 void *
@@ -153,16 +153,19 @@ void *
     /* s_log() is not allowed after tls_cleanup() */
 
     /* terminate the thread */
-#if defined(USE_WIN32) || defined(USE_OS2)
+#if defined(USE_WIN32)
 #if !defined(_WIN32_WCE)
     _endthreadex(0);
+#endif
+#if defined(__OS2__) && !defined(USE_PTHREAD)
+    _endthread(0);
 #endif
     return 0;
 #else
 #ifdef USE_UCONTEXT
     s_poll_wait(NULL, 0, 0); /* wait on poll() */
 #endif
-    return NULL;
+    return 0;           // 2021-05-29 SHL
 #endif
 }
 
@@ -541,6 +544,9 @@ NOEXPORT void ssl_start(CLI *c) {
 #if OPENSSL_VERSION_NUMBER < 0x10100000L
     int unsafe_openssl;
 #endif /* OpenSSL version < 1.1.0 */
+#ifdef __OS2__ // 2021-06-15 SHL ticket #729 100% CPU workaround
+    int would_block_retries = 0;
+#endif
 
     c->ssl=SSL_new(c->opt->ctx);
     if(!c->ssl) {
@@ -642,16 +648,43 @@ NOEXPORT void ssl_start(CLI *c) {
         }
         if(err==SSL_ERROR_SYSCALL) {
             switch(get_last_socket_error()) {
-            case S_EINTR:
             case S_EWOULDBLOCK:
+#ifdef __OS2__  // 2021-06-15 SHL ticket #729 100% CPU workaround
+            {
+                /* If server mode and SSL_accept returns S_EWOULDBLOCK,
+                   something went wrong after connection was initiated,
+                   but before the SSL state machine was ready to read data.
+                   Since the socket is non-blocking any read attempt
+                   will return S_EWOULDBLOCK until the socket is closed
+                   For some reason, the socket does not seem close on its own,
+                   probably because we keep accessing it.
+                   SSL_get_error() returned SSL_ERROR_SYSCALL because
+                   BIO_should_read() is not yet true and this will probably
+                   not change until the socket is closed.
+                   We retry 3 times just in case the issue really is intermittent
+                   and then we throw_exception() to clear the connection.
+                */
+                if (!c->opt->option.client && ++would_block_retries > 2) {
+                    // Too many retries in server mode
+                    int sock = c->local_rfd.fd;
+                    s_log(LOG_ERR,
+                         "ssl_start: socket %u stuck in SSL_ERROR_SYSCALL/S_EWOULDBLOCK mode - closing connection",
+                         sock);
+                    break;              // Time to throw exception
+                }
+                sleep(5);               // Allow time to recover if intermittent
+                // Drop through to continue and retry
+            } // S_EWOULDBLOCK
+#endif // __OS2__
+            case S_EINTR:
 #if S_EAGAIN!=S_EWOULDBLOCK
             case S_EAGAIN:
 #endif
                 continue;
-            }
+            } // switch
             sockerror(c->opt->option.client ? "SSL_connect" : "SSL_accept");
             throw_exception(c, 1);
-        }
+        } // while
         sslerror(c->opt->option.client ? "SSL_connect" : "SSL_accept");
         throw_exception(c, 1);
     }
@@ -802,6 +835,9 @@ NOEXPORT void transfer(CLI *c) {
     int err;
     /* logical channels (not file descriptors!) open for read or write */
     int sock_open_rd=1, sock_open_wr=1;
+#ifdef __OS2__
+    int efault_retries = 0;
+#endif
     /* awaited conditions on TLS file descriptors */
     int shutdown_wants_read=0, shutdown_wants_write=0;
     int read_wants_read=0, read_wants_write=0;
@@ -859,8 +895,16 @@ NOEXPORT void transfer(CLI *c) {
             timeout=c->opt->timeout_close;
         }
         err=s_poll_wait(c->fds, timeout, 0);
+        /* 2012-02-17 SHL s_poll_wait intermittently fails with EFAULT
+           Need to find and fix in tcpip32.dll
+           For now we just retry
+        */
         switch(err) {
         case -1:
+#ifdef __OS2__
+            if (get_last_socket_error() == EFAULT && ++efault_retries < 2)
+                continue;       // Retry
+#endif
             sockerror("transfer: s_poll_wait");
             throw_exception(c, 1);
         case 0: /* timeout */
@@ -880,6 +924,9 @@ NOEXPORT void transfer(CLI *c) {
             s_poll_dump(c->fds, LOG_DEBUG);
             return; /* OK */
         }
+#ifdef __OS2__ // 2012-02-17 SHL EFAULT workaround
+        efault_retries = 0;
+#endif
 
         /****************************** retrieve results from c->fds */
         sock_can_rd=s_poll_canread(c->fds, c->sock_rfd->fd);
@@ -1304,7 +1351,8 @@ NOEXPORT void auth_user(CLI *c) {
     struct servent *s_ent;    /* structure for getservbyname */
 #endif
     SOCKADDR_UNION ident;     /* IDENT socket name */
-    char *line, *type, *system, *user;
+    // 2012-01-19 SHL Avoid warning system->system_
+    char *line, *type, *system_, *user;
     unsigned remote_port, local_port;
 
     if(!c->opt->username)
@@ -1347,19 +1395,19 @@ NOEXPORT void auth_user(CLI *c) {
         throw_exception(c, 1);
     }
     *type++='\0';
-    system=strchr(type, ':');
-    if(!system) {
+    system_=strchr(type, ':');
+    if(!system_) {
         s_log(LOG_ERR, "Malformed IDENT response");
         str_free(line);
         throw_exception(c, 1);
     }
-    *system++='\0';
+    *system_++='\0';
     if(strcmp(type, " USERID ")) {
         s_log(LOG_ERR, "Incorrect IDENT response type");
         str_free(line);
         throw_exception(c, 1);
     }
-    user=strchr(system, ':');
+    user=strchr(system_, ':');
     if(!user) {
         s_log(LOG_ERR, "Malformed IDENT response");
         str_free(line);
@@ -1798,12 +1846,17 @@ NOEXPORT int redirect(CLI *c) {
 NOEXPORT void print_bound_address(CLI *c) {
     char *txt;
     SOCKADDR_UNION addr;
+#ifndef __OS2__
     socklen_t addrlen=sizeof addr;
+#else
+    int addrlen=sizeof addr; // 2012-01-20 SHL Avoid warnings
+#endif
 
     if(c->opt->log_level<LOG_NOTICE) /* performance optimization */
         return;
     memset(&addr, 0, (size_t)addrlen);
-    if(getsockname(c->fd, (struct sockaddr *)&addr, &addrlen)) {
+    // 2021-05-29 SHL Avoid warning
+    if(getsockname(c->fd, (struct sockaddr *)&addr, (__socklen_t *)&addrlen)) {
         sockerror("getsockname");
         return;
     }

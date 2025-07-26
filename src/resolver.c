@@ -79,6 +79,12 @@ NOEXPORT void addrlist_reset(SOCKADDR_LIST *);
 #define EAI_SERVICE 8
 #endif
 
+#ifdef __OS2__  // 2012-01-19 SHL Avoid compile error
+#ifndef EAI_AGAIN
+#define EAI_AGAIN 3
+#endif
+#endif
+
 /* rename some potentially locally shadowed declarations */
 #define getaddrinfo     local_getaddrinfo
 #define freeaddrinfo    local_freeaddrinfo

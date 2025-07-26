@@ -35,7 +35,7 @@
  *   forward this exception.
  */
 
-#ifdef USE_OS2
+#ifdef __OS2__
 #define INCL_DOSPROCESS
 #include <os2.h>
 #endif
@@ -656,7 +656,9 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
 
 #endif /* USE_WIN32 */
 
-#ifdef USE_OS2
+// 2012-01-20 SHL Switch to pthreads - fixme for this code to be gone from repo someday
+#ifndef USE_PTHREAD
+#ifdef __OS2__
 
 int sthreads_init(void) {
     return 0;
@@ -688,7 +690,8 @@ int create_client(SOCKET ls, SOCKET s, CLI *arg) {
     return 0;
 }
 
-#endif /* USE_OS2 */
+#endif /* __OS2__ */
+#endif /* USE_PTHREAD */
 
 #ifdef _WIN32_WCE
 

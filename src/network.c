@@ -466,6 +466,10 @@ int s_poll_wait(s_poll_set *fds, int sec, int msec) {
         }
         retval=select((int)fds->max+1,
             fds->orfds, fds->owfds, fds->oxfds, tv_ptr);
+#ifdef __OS2__
+	if (retval == -1)
+		usleep(500000);
+#endif
     } while(retval<0 && get_last_socket_error()==S_EINTR);
     if(retval>0)
         check_terminate(fds);
@@ -588,7 +592,11 @@ int socket_options_set(SERVICE_OPTIONS *service, SOCKET s, int type) {
 
 int get_socket_error(const SOCKET fd) {
     int err;
+#ifndef __OS2__ // 2012-01-20 SHL Avoid warnings
     socklen_t optlen=sizeof err;
+#else
+    int optlen=sizeof err;
+#endif
 
     if(getsockopt(fd, SOL_SOCKET, SO_ERROR, (void *)&err, &optlen))
         err=get_last_socket_error(); /* failed -> ask why */
@@ -1040,7 +1048,8 @@ int make_sockets(SOCKET fd[2]) { /* make a pair of connected ipv4 sockets */
         closesocket(fd[1]);
         return 1;
     }
-    if(getsockname(s, (struct sockaddr *)&addr, &addrlen)) {
+    // 2012-01-20 SHL Avoid warning
+    if(getsockname(s, (struct sockaddr *)&addr, (int*)&addrlen)) {
         sockerror("make_sockets: getsockname");
         closesocket(s);
         closesocket(fd[1]);

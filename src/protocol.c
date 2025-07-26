@@ -683,7 +683,12 @@ NOEXPORT int validate_connect_addr(CLI *c) {
 
 NOEXPORT void proxy_server_late(CLI *c) {
     SOCKADDR_UNION addr;
+// 2012-01-20 SHL Avoid warning
+#ifndef __OS2__
     socklen_t addrlen;
+#else
+    int addrlen;
+#endif
     char src_host[IP_LEN], dst_host[IP_LEN];
     char src_port[PORT_LEN], dst_port[PORT_LEN];
     const char *proto;
